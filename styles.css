@@ -738,6 +738,18 @@ body::before {
   }
 }
 
+/* html2canvas clones the document, which restarts CSS animations — the export
+   caught the card mid-fade (header visible, everything below at opacity 0).
+   app.js sets html.capturing before rasterising and removes it afterwards. */
+html.capturing .card-head,
+html.capturing .meal,
+html.capturing .combo,
+html.capturing .legend {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
 /* ─────────────────────────────── print ─────────────────────────────── */
 
 @page {
@@ -810,4 +822,22 @@ body::before {
   .combo-prices { padding-top: 2mm; font-size: 8.6pt; }
 
   .legend { margin-top: 3mm; padding-top: 2.2mm; font-size: 5.8pt; gap: 0.8mm 4mm; }
+
+  /* Printing re-lays the page out at paper width (≈710px on A4 with margins),
+     which would otherwise trip the max-width:720px single-column phone layout
+     and push the card onto a second page. Print always uses the 2-up grid. */
+  .meal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .meal-grid > .meal:nth-child(2) {
+    padding-top: 0 !important;
+    border-top: 0 !important;
+  }
+  .combo {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.6fr) !important;
+  }
+  .card {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

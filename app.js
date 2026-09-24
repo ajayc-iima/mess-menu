@@ -307,25 +307,52 @@
     const label = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Rendering…';
+    document.documentElement.classList.add('capturing');
     try {
       if (document.fonts && document.fonts.ready) await document.fonts.ready;
       const canvas = await window.html2canvas(els.card, {
         backgroundColor: '#F3EEE4',
-        scale: Math.min(2.5, (window.devicePixelRatio || 1) * 2),
+        scale: Math.min(2, (window.devicePixelRatio || 1) * 2),
         useCORS: true,
         logging: false,
+        /* cloned documents restart the entrance animations and would export
+           the card mid-fade; pin every animated block to its final state */
+        onclone: (doc) => {
+          const s = doc.createElement('style');
+          s.textContent =
+            '.card-head,.meal,.combo,.legend{animation:none!important;opacity:1!important;transform:none!important}';
+          doc.head.appendChild(s);
+          doc.documentElement.classList.add('capturing');
+        },
       });
-      const a = document.createElement('a');
-      a.download = 'mess-menu-' + state.current + '.png';
-      a.href = canvas.toDataURL('image/png');
-      a.click();
+      await downloadCanvas(canvas, 'mess-menu-' + state.current + '.png');
     } catch (err) {
       console.error(err);
       showError('Could not render the image: ' + err.message);
     } finally {
+      document.documentElement.classList.remove('capturing');
       btn.disabled = false;
       btn.textContent = label;
     }
+  }
+
+  /* Blob download: data: URLs this large get dropped by several mobile browsers. */
+  function downloadCanvas(canvas, fileName) {
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) { resolve(); return; }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        resolve();
+      }, 'image/png');
+    });
   }
 
   /* ----------------------------------------------------------- listeners */
