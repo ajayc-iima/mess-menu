@@ -1,28 +1,42 @@
-# Plaksha Mess Menu — menu card generator
+# Plaksha Mess Menu — daily menu card
 
-Drop in the weekly mess menu spreadsheet (`.xlsx`), pick a date, get a printable
-menu card for that day — the same layout as the printed/PDF card: breakfast,
-lunch, evening refreshment, dinner, plus the paid Healthy Combo and the
-veg / egg / non-veg marks.
+Opens straight to today's mess menu: breakfast, lunch, evening refreshment,
+dinner, plus the paid Healthy Combo and the veg / egg / non-veg marks — laid out
+as a printable card. There is nothing to upload; the site reads the menu
+spreadsheet that lives in this repo.
 
-Everything runs in the browser. No server, no uploads, no tracking — the file
-never leaves the machine.
+Everything runs in the browser. No server, no tracking.
 
 ---
 
 ## Use it
 
-1. Open the site.
-2. Drop the `Weekly Mess Menu … .xlsx` on the upload panel (or click **Choose file**).
-3. Pick a date from the chip row (or type one in **Jump to**).
-4. **Save as image** → PNG of the card · **Print / PDF** → one A4 page per card.
+1. Open the site — today's card is shown automatically (if today isn't in the
+   spreadsheet, the next day it covers is shown, or the last one).
+2. Pick another date from the chip row (or type one in **Jump to**).
+3. **Save as image** → PNG of the card · **Print / PDF** → one A4 page per card.
 
 Arrow keys `←` `→` step through the days. The **Calories** toggle hides the
 per-100 g figures.
 
-There is a **Try the sample menu** button that loads
-`sample/mess-menu-sample.xlsx`, so you can see the card before uploading
-anything.
+---
+
+## Update the menu (the only thing you need to do each week)
+
+The site loads **`sample/mess-menu-sample.xlsx`** every time it opens.
+
+1. On GitHub, open the `sample/` folder.
+2. **Add file → Upload files**, and upload the new workbook **with the same file
+   name** (`mess-menu-sample.xlsx`) — GitHub replaces the old one — then **Commit**.
+3. GitHub Pages redeploys in about a minute; reload the site and the new dates
+   are there.
+
+Want next week's menu visible early? Put it on an extra sheet of the same
+workbook (one sheet per week) — all sheets are merged, and each date becomes its
+own card.
+
+The file name is set by `MENU_URL` at the top of `app.js` if you ever want to
+change it.
 
 ---
 
@@ -51,9 +65,8 @@ Then in the GitHub repo:
 
 A minute later the site is at `https://<you>.github.io/plaksha-menu-card/`.
 
-> Using a project site under a sub-path? Nothing to configure — every asset is
-> referenced relatively, and `.nojekyll` is included so GitHub serves the files
-> exactly as they are.
+> Using a project site under a sub-path? Nothing to configure — every asset
+> (including the menu spreadsheet) is referenced relatively.
 
 No build step, no dependencies to install: `xlsx.full.min.js` (SheetJS) and
 `html2canvas.min.js` are vendored in `vendor/`, so the site also works offline
@@ -112,16 +125,16 @@ showing it:
 index.html          the page
 styles.css          design + print (A4) styles
 parser.js           .xlsx → one menu-card model per date (works in browser & node)
-app.js              upload, date picker, rendering, PNG/PDF export
+app.js              loads the menu, date picker, rendering, PNG/PDF export
 vendor/             SheetJS + html2canvas (vendored, no CDN needed)
-sample/             a sample weekly menu to try
-.nojekyll           tells GitHub Pages to serve the files as-is
+sample/             the menu spreadsheet the site reads — update it here
 ```
 
 ### Tweak it
 
 - **Colours** — the palette lives at the top of `styles.css` (`--paper`,
   `--ink`, `--gold`, `--veg`, `--egg`, `--nonveg`).
+- **Which spreadsheet is loaded** — `MENU_URL` at the top of `app.js`.
 - **The combo line** *“Reserve at least four hours ahead.”* — `comboHTML()` in
   `app.js`.
 - **Row → card mapping** — `classifyRow()` in `parser.js`.
@@ -133,5 +146,6 @@ sample/             a sample weekly menu to try
 python3 -m http.server 8123     # then open http://localhost:8123/
 ```
 
-(Opening `index.html` straight from disk works too, except the sample button —
-browsers block `fetch()` of a local file. Upload the `.xlsx` manually instead.)
+(Don't open `index.html` straight from disk — browsers block `fetch()` of a
+local file, so the menu can't load. Use the local server above or the published
+site.)

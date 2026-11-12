@@ -1,15 +1,25 @@
 /*
- * app.js — upload → pick a date → render the menu card.
- * All work happens client side; nothing is uploaded anywhere.
+ * app.js — loads the weekly menu straight from the repo, then lets people pick
+ * a date and renders the menu card. There is nothing to upload: the maintainer
+ * just replaces sample/mess-menu-sample.xlsx on GitHub.
+ * All parsing happens client side.
  */
 (function () {
   'use strict';
 
+  /* The menu workbook, relative to index.html. Keep this file name when you
+     update the menu on GitHub (or change the name here). More weeks can go in
+     extra sheets of the same workbook — they are merged automatically. */
+  const MENU_URL = 'sample/mess-menu-sample.xlsx';
+
   const els = {
-    dropzone: document.getElementById('dropzone'),
-    file: document.getElementById('file'),
-    error: document.getElementById('dz-error'),
-    sample: document.getElementById('btn-sample'),
+    status: document.getElementById('status'),
+    statusKicker: document.getElementById('status-kicker'),
+    statusTitle: document.getElementById('status-title'),
+    statusHelp: document.getElementById('status-help'),
+    statusDots: document.getElementById('status-dots'),
+    statusActions: document.getElementById('status-actions'),
+    retry: document.getElementById('btn-retry'),
     picker: document.getElementById('picker'),
     chips: document.getElementById('chips'),
     prev: document.getElementById('prev-day'),
@@ -23,66 +33,98 @@
     btnCalories: document.getElementById('btn-calories'),
     btnPrint: document.getElementById('btn-print'),
     btnPng: document.getElementById('btn-png'),
-    btnChange: document.getElementById('btn-change'),
   };
 
   const state = {
-    fileName: '',
     days: [],
     byIso: new Map(),
     current: null,
     showCalories: true,
   };
 
-  /* ----------------------------------------------------------- file input */
+  /* ------------------------------------------------------ loading the menu */
 
-  function showError(msg) {
-    els.error.textContent = msg;
-    els.error.hidden = !msg;
+  function showLoading() {
+    els.status.hidden = false;
+    els.status.classList.remove('is-error');
+    els.statusKicker.textContent = 'Plaksha University';
+    els.statusTitle.innerHTML = 'Getting today’s <em>menu</em>';
+    els.statusHelp.hidden = true;
+    els.statusDots.hidden = false;
+    els.statusActions.hidden = true;
   }
 
-  function readFile(file) {
-    showError('');
-    if (!file) return;
-    if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)) {
-      showError('“' + file.name + '” is not an .xlsx file. Upload the weekly mess menu spreadsheet.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onerror = () => showError('That file could not be read. Try re-downloading it.');
-    reader.onload = () => {
-      try {
-        loadWorkbook(reader.result, file.name);
-      } catch (err) {
-        console.error(err);
-        showError('Could not read that spreadsheet: ' + err.message);
+  function showLoadError(title, help) {
+    els.status.hidden = false;
+    els.status.classList.add('is-error');
+    els.statusKicker.textContent = 'Menu unavailable';
+    els.statusTitle.textContent = title;
+    els.statusHelp.textContent = help;
+    els.statusHelp.hidden = false;
+    els.statusDots.hidden = true;
+    els.statusActions.hidden = false;
+  }
+
+  async function loadMenu() {
+    showLoading();
+
+    let buffer;
+    try {
+      /* "no-cache" = always revalidate, so a freshly pushed menu shows up
+         right away instead of waiting out the CDN/browser cache. */
+      const res = await fetch(MENU_URL, { cache: 'no-cache' });
+      if (!res.ok) {
+        showLoadError(
+          res.status === 404 ? 'The menu hasn’t been published yet.' : 'The menu server had a problem.',
+          res.status === 404
+            ? 'Could not find ' + MENU_URL + '. Please check back soon.'
+            : 'The server answered ' + res.status + '. Try again in a minute.'
+        );
+        return;
       }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  function loadWorkbook(buffer, fileName) {
-    const parsed = MenuParser.parseWorkbook(buffer);
-    if (!parsed.days.length) {
-      showError('No menu days found. The sheet needs a “Day - Date” row with dates in it.');
+      buffer = await res.arrayBuffer();
+    } catch (err) {
+      console.error(err);
+      showLoadError(
+        'Couldn’t reach the menu.',
+        location.protocol === 'file:'
+          ? 'Browsers block loading the menu file when the page is opened straight from disk. ' +
+            'Open the published site, or serve this folder (python3 -m http.server).'
+          : 'Check your internet connection and try again.'
+      );
       return;
     }
 
-    state.fileName = fileName;
+    let parsed;
+    try {
+      parsed = MenuParser.parseWorkbook(buffer);
+    } catch (err) {
+      console.error(err);
+      showLoadError('The menu file couldn’t be read.', err.message);
+      return;
+    }
+
+    if (!parsed.days.length) {
+      showLoadError(
+        'No menu days found.',
+        'The sheet needs a “Day - Date” row with dates in it.'
+      );
+      return;
+    }
+
     state.days = parsed.days;
     state.byIso = new Map(parsed.days.map((d) => [d.iso, d]));
     state.current = pickDefaultDate(parsed.days);
 
-    els.dropzone.hidden = true;
+    els.status.hidden = true;
     els.picker.hidden = false;
     els.stage.hidden = false;
     els.actions.hidden = false;
 
+    els.foot.dataset.warnings = parsed.warnings.length ? ' · ' + parsed.warnings.join(' · ') : '';
+
     renderChips();
     render();
-
-    const warnings = parsed.warnings.length ? ' · ' + parsed.warnings.join(' · ') : '';
-    els.foot.dataset.warnings = warnings;
   }
 
   function pickDefaultDate(days) {
@@ -112,7 +154,7 @@
       els.chips.appendChild(b);
     });
 
-    els.count.textContent = state.days.length + ' days in ' + state.fileName;
+    els.count.textContent = state.days.length + (state.days.length === 1 ? ' day' : ' days') + ' on the menu';
     els.dateInput.min = state.days[0].iso;
     els.dateInput.max = state.days[state.days.length - 1].iso;
 
@@ -175,8 +217,7 @@
 
     els.foot.textContent =
       'Card for ' + day.iso +
-      ' · sheet “' + day.sheet + '” · week ' + day.weekRange +
-      ' · generated from ' + state.fileName +
+      ' · week ' + day.weekRange +
       (els.foot.dataset.warnings || '');
   }
 
@@ -190,7 +231,7 @@
     els.card.innerHTML =
       '<div class="card-empty">' +
         '<h2>No menu on ' + esc(prettyISO(wanted)) + '</h2>' +
-        '<p>The spreadsheet only covers ' + esc(state.days[0].iso) + ' to ' +
+        '<p>The menu only covers ' + esc(state.days[0].iso) + ' to ' +
           esc(state.days[state.days.length - 1].iso) + '. Pick a date it has:</p>' +
         '<div class="near">' +
           near.map((d) =>
@@ -203,7 +244,7 @@
 
     els.card.querySelectorAll('.chip').forEach((c) =>
       c.addEventListener('click', () => select(c.dataset.iso)));
-    els.foot.textContent = 'No menu for ' + wanted + ' · ' + state.days.length + ' days in ' + state.fileName;
+    els.foot.textContent = 'No menu for ' + wanted + ' · ' + state.days.length + ' days available';
   }
 
   function mealHTML(meal) {
@@ -302,7 +343,7 @@
   /* --------------------------------------------------------------- export */
 
   async function savePng() {
-    if (!window.html2canvas) { showError('Image export needs vendor/html2canvas.min.js.'); return; }
+    if (!window.html2canvas) { window.alert('Image export needs vendor/html2canvas.min.js.'); return; }
     const btn = els.btnPng;
     const label = btn.textContent;
     btn.disabled = true;
@@ -328,7 +369,7 @@
       await downloadCanvas(canvas, 'mess-menu-' + state.current + '.png');
     } catch (err) {
       console.error(err);
-      showError('Could not render the image: ' + err.message);
+      window.alert('Could not render the image: ' + err.message);
     } finally {
       document.documentElement.classList.remove('capturing');
       btn.disabled = false;
@@ -357,44 +398,7 @@
 
   /* ----------------------------------------------------------- listeners */
 
-  els.file.addEventListener('change', (e) => readFile(e.target.files[0]));
-
-  els.sample.addEventListener('click', async () => {
-    showError('');
-    try {
-      const res = await fetch('sample/mess-menu-sample.xlsx');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      loadWorkbook(await res.arrayBuffer(), 'mess-menu-sample.xlsx');
-    } catch (err) {
-      showError('Sample not reachable (' + err.message + '). Upload the .xlsx manually instead.');
-    }
-  });
-
-  ['dragenter', 'dragover'].forEach((t) =>
-    window.addEventListener(t, (e) => {
-      e.preventDefault();
-      els.dropzone.classList.add('is-over');
-    }));
-  ['dragleave', 'drop'].forEach((t) =>
-    window.addEventListener(t, (e) => {
-      e.preventDefault();
-      if (t === 'drop') {
-        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-        if (file) readFile(file);
-      }
-      els.dropzone.classList.remove('is-over');
-    }));
-
-  els.dropzone.addEventListener('click', (e) => {
-    if (e.target.closest('button')) return;
-    els.file.click();
-  });
-  els.dropzone.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      els.file.click();
-    }
-  });
+  els.retry.addEventListener('click', loadMenu);
 
   els.prev.addEventListener('click', () => step(-1));
   els.next.addEventListener('click', () => step(1));
@@ -416,11 +420,6 @@
 
   els.btnPrint.addEventListener('click', () => window.print());
   els.btnPng.addEventListener('click', savePng);
-  els.btnChange.addEventListener('click', () => {
-    els.dropzone.hidden = false;
-    els.file.value = '';
-    els.file.click();
-  });
 
   window.addEventListener('keydown', (e) => {
     if (els.stage.hidden || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -429,4 +428,8 @@
     if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
     if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
   });
+
+  /* ---------------------------------------------------------------- start */
+
+  loadMenu();
 })();

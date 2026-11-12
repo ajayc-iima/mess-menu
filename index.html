@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Plaksha Mess Menu — Menu Card Generator</title>
-<meta name="description" content="Upload the weekly mess menu spreadsheet and get a printable menu card for any date in it. Runs entirely in your browser.">
+<title>Plaksha Mess Menu</title>
+<meta name="description" content="Today's Plaksha mess menu — breakfast, lunch, evening refreshment and dinner — with a printable menu card for every day of the week.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&display=swap" rel="stylesheet">
@@ -18,40 +18,31 @@
   <header class="topbar">
     <div class="brand">
       <p class="brand-kicker">Plaksha University</p>
-      <p class="brand-name">Mess Menu <span>card generator</span></p>
+      <p class="brand-name">Mess Menu <span>daily card</span></p>
     </div>
 
     <div class="topbar-actions" id="topbar-actions" hidden>
       <button type="button" class="toggle is-on" id="btn-calories" aria-pressed="true">Calories</button>
       <button type="button" class="btn btn-quiet" id="btn-print">Print / PDF</button>
       <button type="button" class="btn btn-gold" id="btn-png">Save as image</button>
-      <button type="button" class="btn btn-quiet" id="btn-change">Change file</button>
     </div>
   </header>
 
-  <!-- ───────────────────────────── upload ───────────────────────────── -->
-  <section class="dropzone" id="dropzone" tabindex="0" role="button"
-           aria-label="Upload the weekly mess menu spreadsheet">
-    <p class="dz-kicker">Step 1 — the spreadsheet</p>
-    <h1 class="dz-title">Drop the weekly<br>mess menu <em>.xlsx</em></h1>
-    <p class="dz-help">
-      The file stays on your machine — everything is parsed in the browser.
-      Each date it covers becomes its own printable menu card.
-    </p>
-    <div class="dz-actions">
-      <label class="btn btn-gold">
-        Choose file
-        <input id="file" type="file" accept=".xlsx,.xls,.xlsm" hidden>
-      </label>
-      <button type="button" class="btn btn-quiet" id="btn-sample">Try the sample menu</button>
+  <!-- ───────────────────── loading / error (menu is fetched automatically) ───────────────────── -->
+  <section class="status" id="status" role="status" aria-live="polite">
+    <p class="status-kicker" id="status-kicker">Plaksha University</p>
+    <h1 class="status-title" id="status-title">Getting today’s <em>menu</em></h1>
+    <p class="status-help" id="status-help" hidden></p>
+    <div class="status-dots" id="status-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="status-actions" id="status-actions" hidden>
+      <button type="button" class="btn btn-gold" id="btn-retry">Try again</button>
     </div>
-    <p class="dz-error" id="dz-error" hidden></p>
   </section>
 
   <!-- ───────────────────────────── date picker ───────────────────────────── -->
   <section class="picker" id="picker" hidden aria-label="Choose a date">
     <div class="picker-head">
-      <p class="picker-kicker" id="picker-kicker">Step 2 — pick a date</p>
+      <p class="picker-kicker" id="picker-kicker">Pick a date</p>
       <div class="picker-tools">
         <label class="picker-jump">
           <span>Jump to</span>
